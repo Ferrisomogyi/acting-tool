@@ -32,6 +32,10 @@
         .dark .frag-dial{background:#14532d;color:#86efac}
         .dark .frag-emot{background:#7c2d12;color:#fed7aa}
         .dark .frag-inter{background:#4c1d95;color:#e9d5ff}
+        .choice-item{transition:all 0.2s ease}
+        .choice-item:hover{transform:translateX(2px)}
+        .sub-choice-panel{animation:slideDown 0.2s ease}
+        @keyframes slideDown{from{opacity:0;max-height:0}to{opacity:1;max-height:500px}}
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 dark:bg-gray-900">
@@ -91,6 +95,7 @@ scenes:[],sceneIn:'',
 analysis:null,methods:[],methodMode:'optional',
 frags:[],selFrag:null,fragFilter:'all',
 choices:{},choiceAmt:50,showOpp:false,
+subChoices:{},selectedChoice:null,loadingSub:false,
 favs:JSON.parse(localStorage.getItem('at_favs')||'[]'),
 notes:JSON.parse(localStorage.getItem('at_notes')||'{}'),
 secret:'',chat:[],chatIn:'',goals:[],
@@ -98,10 +103,10 @@ rehTime:120,rehActive:false,rehInt:null,
 loading:false,loadMsg:'',collapsed:{},expanded:{}
 };
 
-try{const x=localStorage.getItem('at_state');if(x){const p=JSON.parse(x);S={...S,...p,loading:false,rehActive:false}}}catch(e){}
+try{const x=localStorage.getItem('at_state');if(x){const p=JSON.parse(x);S={...S,...p,loading:false,rehActive:false,loadingSub:false}}}catch(e){}
 if(S.dark)document.documentElement.classList.add('dark');
 
-function save(){const t={...S};delete t.loading;delete t.loadMsg;delete t.rehInt;localStorage.setItem('at_state',JSON.stringify(t));localStorage.setItem('at_favs',JSON.stringify(S.favs));localStorage.setItem('at_notes',JSON.stringify(S.notes))}
+function save(){const t={...S};delete t.loading;delete t.loadMsg;delete t.rehInt;delete t.loadingSub;localStorage.setItem('at_state',JSON.stringify(t));localStorage.setItem('at_favs',JSON.stringify(S.favs));localStorage.setItem('at_notes',JSON.stringify(S.notes))}
 function esc(t){return t?String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):''}
 function togDark(){S.dark=!S.dark;document.documentElement.classList.toggle('dark',S.dark);localStorage.setItem('at_dark',S.dark);render()}
 function togCol(id){S.collapsed[id]=!S.collapsed[id];render()}
@@ -250,6 +255,52 @@ if(res){try{S.choices[frag.id]=JSON.parse(res.replace(/\`\`\`json|\`\`\`/g,'').t
 S.loading=false;render();
 }
 
+// SUB-KEUZES FEATURE
+async function genSubChoices(choice, cat){
+const choiceKey = typeof choice === 'object' ? choice.choice : choice;
+S.loadingSub=true;S.selectedChoice=choiceKey;render();
+const p=`Je bent een expert acteercoach. Een acteur heeft deze keuze gemaakt:
+
+GEKOZEN KEUZE: "${choiceKey}"
+CATEGORIE: ${cat}
+FRAGMENT: "${S.selFrag?.text||''}"
+
+SCENE CONTEXT:
+${S.scenes.map(s=>s.text).join('\\n').substring(0,1000)}
+
+Geef nu 10 ZEER GEDETAILLEERDE sub-variaties van deze keuze.
+Ga DIEPER in op het HOE. Wees EXTREEM SPECIFIEK over:
+- Exacte lichaamshouding
+- Timing en tempo
+- Blik en oogcontact
+- Ademhaling
+- Micro-bewegingen
+
+Antwoord in het ${LANG[S.lang]}.
+
+Return ALLEEN een JSON array met 10 strings:
+["sub-keuze 1 met veel detail", "sub-keuze 2 met veel detail", ...]`;
+
+const res=await callAI(p);
+if(res){
+try{
+const parsed=JSON.parse(res.replace(/\`\`\`json|\`\`\`/g,'').trim());
+S.subChoices[choiceKey]=Array.isArray(parsed)?parsed:[];
+save();
+}catch(e){S.subChoices[choiceKey]=[];}
+}
+S.loadingSub=false;render();
+}
+
+function toggleChoiceExpand(choiceKey){
+if(S.selectedChoice===choiceKey){
+S.selectedChoice=null;
+}else{
+S.selectedChoice=choiceKey;
+}
+render();
+}
+
 async function wildCard(){
 if(!S.selFrag){alert('Selecteer eerst een fragment!');return}
 S.loading=true;S.loadMsg='Wild Card... 🃏';render();
@@ -300,7 +351,7 @@ function stopReh(){S.rehActive=false;if(S.rehInt){clearInterval(S.rehInt);S.rehI
 function resetReh(s=120){stopReh();S.rehTime=s;render()}
 
 function exportData(){
-const d={date:new Date().toISOString(),actor:S.actor,chars:S.chars,ctx:S.ctx,scenes:S.scenes,analysis:S.analysis,frags:S.frags,choices:S.choices,favs:S.favs,notes:S.notes,goals:S.goals};
+const d={date:new Date().toISOString(),actor:S.actor,chars:S.chars,ctx:S.ctx,scenes:S.scenes,analysis:S.analysis,frags:S.frags,choices:S.choices,subChoices:S.subChoices,favs:S.favs,notes:S.notes,goals:S.goals};
 const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
 const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='actors-tool-'+Date.now()+'.json';a.click();
 }
@@ -323,6 +374,60 @@ return '<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:b
 '<span class="text-gray-500">'+(op?'▲':'▼')+'</span></button>'+(op?'<div class="p-4">'+content+'</div>':'')+'</div>';
 }
 
+// RENDER CHOICE WITH SUB-CHOICES
+function renderChoice(c, cat, fragId){
+const t=typeof c==='object'?c.choice:c;
+const o=typeof c==='object'?c.opposite:null;
+const isSelected = S.selectedChoice === t;
+const hasSubs = S.subChoices[t] && S.subChoices[t].length > 0;
+const isLoadingThis = S.loadingSub && S.selectedChoice === t;
+
+let h='<div class="choice-item border rounded-lg overflow-hidden '+(isSelected?'border-purple-500 border-2 shadow-md':'border-gray-200 dark:border-gray-600')+'">';
+
+// Main choice row
+h+='<div class="p-2 bg-gray-50 dark:bg-gray-700 flex justify-between items-start gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onclick="toggleChoiceExpand(\''+esc(t).replace(/'/g,"\\'")+'\')">';
+h+='<div class="flex-1"><p class="text-sm dark:text-gray-200">'+esc(t)+'</p>';
+if(S.showOpp&&o)h+='<p class="text-xs text-gray-500 mt-1">↔️ '+esc(o)+'</p>';
+h+='</div>';
+h+='<div class="flex items-center gap-1">';
+h+='<button onclick="event.stopPropagation();togFav(\''+esc(t).replace(/'/g,"\\'")+'\',\''+cat+'\')" class="p-1 '+(isFav(c)?'text-red-500':'text-gray-400 hover:text-red-400')+'">'+(isFav(c)?'❤️':'🤍')+'</button>';
+h+='<span class="text-purple-500 text-sm">'+(isSelected?'▼':'▶')+'</span>';
+h+='</div></div>';
+
+// Sub-choices panel (only if selected)
+if(isSelected){
+h+='<div class="sub-choice-panel bg-purple-50 dark:bg-purple-900/30 border-t border-purple-200 dark:border-purple-700 p-3">';
+h+='<div class="flex items-center justify-between mb-2">';
+h+='<span class="text-xs font-semibold text-purple-700 dark:text-purple-300">🔍 Sub-keuzes (meer detail)</span>';
+if(!hasSubs && !isLoadingThis){
+h+='<button onclick="event.stopPropagation();genSubChoices(\''+esc(t).replace(/'/g,"\\'")+'\',\''+cat+'\')" class="px-3 py-1 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 transition-colors">✨ Genereer 10 sub-keuzes</button>';
+}
+h+='</div>';
+
+if(isLoadingThis){
+h+='<div class="flex items-center gap-2 py-4 justify-center"><div class="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div><span class="text-sm text-purple-600 dark:text-purple-400">Sub-keuzes genereren...</span></div>';
+}else if(hasSubs){
+h+='<div class="space-y-1 max-h-48 overflow-y-auto scrollbar-thin">';
+S.subChoices[t].forEach((sub,i)=>{
+const subFav=isFav(sub);
+h+='<div class="flex items-start gap-2 p-2 bg-white dark:bg-gray-800 rounded border border-purple-100 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-600 transition-colors">';
+h+='<span class="text-purple-400 text-xs mt-0.5 font-bold">'+(i+1)+'.</span>';
+h+='<p class="text-xs text-gray-700 dark:text-gray-300 flex-1">'+esc(sub)+'</p>';
+h+='<button onclick="event.stopPropagation();togFav(\''+esc(sub).replace(/'/g,"\\'")+'\',\'sub\')" class="text-sm '+(subFav?'text-red-500':'text-gray-400 hover:text-red-400')+'">'+(subFav?'❤️':'🤍')+'</button>';
+h+='</div>';
+});
+h+='</div>';
+h+='<button onclick="event.stopPropagation();genSubChoices(\''+esc(t).replace(/'/g,"\\'")+'\',\''+cat+'\')" class="mt-2 w-full py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">🔄 Andere sub-keuzes genereren</button>';
+}else{
+h+='<p class="text-xs text-gray-500 dark:text-gray-400 italic py-2">Klik op de knop hierboven om 10 gedetailleerde variaties te zien</p>';
+}
+h+='</div>';
+}
+
+h+='</div>';
+return h;
+}
+
 function render(){
 const app=document.getElementById('app');
 let h='';
@@ -331,10 +436,10 @@ let h='';
 if(S.loading)h+='<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div class="bg-white dark:bg-gray-800 rounded-xl p-6 flex items-center gap-4"><div class="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div><span class="dark:text-gray-200">'+S.loadMsg+'</span></div></div>';
 
 // Onboarding
-if(S.onboard)h+='<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto"><div class="text-center mb-6"><span class="text-6xl">🎭</span><h2 class="text-2xl font-bold mt-4 dark:text-gray-100">Actor\'s Tool V2</h2><p class="text-gray-500 mt-2">Complete Edition - Alle features</p></div><div class="space-y-3 text-sm dark:text-gray-300"><p>1️⃣ <b>Profiel</b> - Vul je acteur gegevens in</p><p>2️⃣ <b>Personages</b> - Max 6, met relaties</p><p>3️⃣ <b>Context</b> - De 5 W\'s (optioneel)</p><p>4️⃣ <b>Scene</b> - Plak of upload tekst</p><p>5️⃣ <b>Analyseer</b> - AI geeft 12-punts analyse</p><p>6️⃣ <b>Fragmenten</b> - Klik voor keuzes!</p></div><div class="mt-6 p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg text-sm"><p class="text-yellow-800 dark:text-yellow-200">💡 API key nodig: <a href="https://console.anthropic.com" target="_blank" class="underline">console.anthropic.com</a></p></div><button onclick="closeOnboard()" class="w-full mt-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700">Aan de slag! 🚀</button></div></div>';
+if(S.onboard)h+='<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto"><div class="text-center mb-6"><span class="text-6xl">🎭</span><h2 class="text-2xl font-bold mt-4 dark:text-gray-100">Actor\'s Tool V2</h2><p class="text-gray-500 mt-2">Met Sub-Keuzes!</p></div><div class="space-y-3 text-sm dark:text-gray-300"><p>1️⃣ <b>Profiel</b> - Vul je acteur gegevens in</p><p>2️⃣ <b>Personages</b> - Max 6, met relaties</p><p>3️⃣ <b>Context</b> - De 5 W\'s (optioneel)</p><p>4️⃣ <b>Scene</b> - Plak of upload tekst</p><p>5️⃣ <b>Analyseer</b> - AI geeft 12-punts analyse</p><p>6️⃣ <b>Fragmenten</b> - Klik voor keuzes!</p><p>7️⃣ <b class="text-purple-600">Keuzes</b> - Klik op een keuze voor <b>10 sub-keuzes</b>!</p></div><div class="mt-4 p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg"><p class="text-purple-700 dark:text-purple-300 text-sm">🆕 <b>Nieuw:</b> Elke keuze heeft nu sub-keuzes voor nog meer detail!</p></div><div class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg text-sm"><p class="text-yellow-800 dark:text-yellow-200">💡 API key nodig: <a href="https://console.anthropic.com" target="_blank" class="underline">console.anthropic.com</a></p></div><button onclick="closeOnboard()" class="w-full mt-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700">Aan de slag! 🚀</button></div></div>';
 
 // Header
-h+='<header class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg"><div class="max-w-7xl mx-auto"><div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><span class="text-3xl">🎭</span><div><h1 class="text-xl font-bold">Actor\'s Tool V2</h1><p class="text-purple-200 text-sm">Complete Edition</p></div></div><div class="flex items-center gap-2"><select onchange="S.lang=this.value;save();render()" class="px-3 py-1 rounded bg-white/20 text-sm">';
+h+='<header class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg"><div class="max-w-7xl mx-auto"><div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><span class="text-3xl">🎭</span><div><h1 class="text-xl font-bold">Actor\'s Tool V2</h1><p class="text-purple-200 text-sm">Met Sub-Keuzes</p></div></div><div class="flex items-center gap-2"><select onchange="S.lang=this.value;save();render()" class="px-3 py-1 rounded bg-white/20 text-sm">';
 Object.entries(LANG).forEach(([c,n])=>{h+='<option value="'+c+'"'+(S.lang===c?' selected':'')+' class="text-gray-900">'+n+'</option>'});
 h+='</select><button onclick="togDark()" class="p-2 rounded bg-white/20 hover:bg-white/30">'+(S.dark?'☀️':'🌙')+'</button><button onclick="S.onboard=true;render()" class="p-2 rounded bg-white/20 hover:bg-white/30">❓</button><button onclick="exportData()" class="px-3 py-1 rounded bg-white/20 hover:bg-white/30">📥</button></div></div>';
 h+='<div class="mt-3 flex items-center gap-2"><span>🔑</span><input type="password" value="'+esc(S.apiKey)+'" onchange="S.apiKey=this.value;localStorage.setItem(\'at_key\',this.value)" placeholder="Claude API Key..." class="flex-1 max-w-sm px-3 py-1 rounded bg-white/20 border border-white/30 placeholder-purple-300">'+(S.apiKey?'<span class="text-green-400">✓</span>':'<span class="text-yellow-300 text-xs">Vereist</span>')+'</div></div></header>';
@@ -463,24 +568,26 @@ settings+='<div class="flex gap-2"><button onclick="wildCard()" class="flex-1 py
 h+=sec('settings','Instellingen','⚙️',settings);
 }
 
-// Choices
+// Choices with SUB-CHOICES
 if(S.selFrag&&S.choices[S.selFrag.id]){
-let ch='<div class="space-y-3 max-h-96 overflow-y-auto scrollbar-thin"><p class="text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 p-2 rounded">"'+esc(S.selFrag.text)+'"</p>';
+let ch='<div class="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin"><p class="text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 p-2 rounded">"'+esc(S.selFrag.text)+'"</p>';
+ch+='<p class="text-xs text-purple-600 dark:text-purple-400 italic">💡 Klik op een keuze voor 10 sub-keuzes!</p>';
+
 CATS.forEach(cat=>{
 const items=S.choices[S.selFrag.id][cat.id]||[];
 if(items.length){
 const expKey='ch_'+S.selFrag.id+'_'+cat.id;
 const isExp=S.expanded[expKey];
 const showItems=isExp?items:items.slice(0,8);
-ch+='<div><h4 class="font-medium text-sm dark:text-gray-300 mb-1">'+cat.i+' '+cat.l+' ('+items.length+')</h4><div class="space-y-1">';
+ch+='<div><h4 class="font-medium text-sm dark:text-gray-300 mb-2">'+cat.i+' '+cat.l+' ('+items.length+')</h4><div class="space-y-2">';
 showItems.forEach(c=>{
-const t=typeof c==='object'?c.choice:c;
-const o=typeof c==='object'?c.opposite:null;
-ch+='<div class="p-2 bg-gray-50 dark:bg-gray-700 rounded flex justify-between items-start gap-2"><div><p class="text-sm">'+esc(t)+'</p>'+(S.showOpp&&o?'<p class="text-xs text-gray-500">↔️ '+esc(o)+'</p>':'')+'</div><button onclick="togFav(\''+esc(t).replace(/'/g,"\\'")+'\',\''+cat.id+'\')" class="'+(isFav(c)?'text-red-500':'text-gray-400')+'">'+(isFav(c)?'❤️':'🤍')+'</button></div>';
+ch+=renderChoice(c, cat.id, S.selFrag.id);
 });
 if(items.length>8){ch+='<button onclick="S.expanded[\''+expKey+'\']=!S.expanded[\''+expKey+'\'];render()" class="w-full py-1 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded">'+(isExp?'▲ Toon minder':'▼ Toon alle '+items.length+' keuzes')+'</button>';}
 ch+='</div></div>';
 }});
+
+// Wildcard
 if(S.choices[S.selFrag.id].wildcard){
 const wcItems=S.choices[S.selFrag.id].wildcard;
 const wcExp=S.expanded['wc_'+S.selFrag.id];
@@ -490,6 +597,8 @@ wcShow.forEach(c=>{ch+='<div class="p-2 bg-orange-50 dark:bg-orange-900/30 round
 if(wcItems.length>5){ch+='<button onclick="S.expanded[\'wc_'+S.selFrag.id+'\']=!S.expanded[\'wc_'+S.selFrag.id+'\'];render()" class="w-full py-1 text-xs text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded">'+(wcExp?'▲ Toon minder':'▼ Toon alle '+wcItems.length)+'</button>';}
 ch+='</div></div>';
 }
+
+// Famous
 if(S.choices[S.selFrag.id].famous){
 const fmItems=S.choices[S.selFrag.id].famous;
 const fmExp=S.expanded['fm_'+S.selFrag.id];
