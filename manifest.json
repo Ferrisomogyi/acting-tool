@@ -1,0 +1,18 @@
+{
+  "name": "Actor's Tool V2",
+  "short_name": "Actor's Tool",
+  "description": "Scene analyse en acteer-keuzes generator voor acteurs",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1f2937",
+  "theme_color": "#7c3aed",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
