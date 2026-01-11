@@ -144,7 +144,7 @@ if(!S.apiKey){alert('Voer eerst je Claude API key in!');return null}
 try{
 const r=await fetch('https://actingtool.ferencsomogyi.workers.dev/v1/messages',{
 method:'POST',headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01'},
-body:JSON.stringify({model:'claude-3-5-sonnet-20241022',max_tokens:4096,messages:[{role:'user',content:p}]})
+body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4096,messages:[{role:'user',content:p}]})
 });
 if(!r.ok)throw new Error('API Error: '+r.status);
 const d=await r.json();return d.content[0].text;
