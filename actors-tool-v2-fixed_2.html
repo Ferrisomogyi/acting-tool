@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎭 Actor's Tool V2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script>tailwind.config={darkMode:'class'};pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    <style>
+        .scrollbar-thin::-webkit-scrollbar{width:6px;height:6px}
+        .scrollbar-thin::-webkit-scrollbar-thumb{background:#a855f7;border-radius:3px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .animate-spin{animation:spin 1s linear infinite}
+        .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .frag-move{background:#dbeafe;border-color:#60a5fa;color:#1e40af}
+        .frag-dial{background:#dcfce7;border-color:#4ade80;color:#166534}
+        .frag-emot{background:#ffedd5;border-color:#fb923c;color:#9a3412}
+        .frag-inter{background:#f3e8ff;border-color:#c084fc;color:#6b21a8}
+        .dark .frag-move{background:#1e3a5f;color:#93c5fd}
+        .dark .frag-dial{background:#14532d;color:#86efac}
+        .dark .frag-emot{background:#7c2d12;color:#fed7aa}
+        .dark .frag-inter{background:#4c1d95;color:#e9d5ff}
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 dark:bg-gray-900">
+<div id="app"></div>
+<script>
+const LANG={nl:'Nederlands',en:'English',es:'Español',fr:'Français',de:'Deutsch',it:'Italiano',pt:'Português',ru:'Русский',ja:'日本語',zh:'中文',ko:'한국어',ar:'العربية',tr:'Türkçe',pl:'Polski',sv:'Svenska',hi:'हिन्दी',th:'ไทย',vi:'Tiếng Việt',id:'Bahasa Indonesia',he:'עברית'};
+const BUILD=['Slank','Atletisch','Gemiddeld','Gespierd','Zwaar'];
+const RELATION=['Partner/geliefde','Familie','Vriend','Collega','Kennis','Vreemde','Vijand','Autoriteit','Ondergeschikte'];
+const POWER=['Jij hebt meer macht','Gelijkwaardig','De ander heeft meer macht','Wisselend/onduidelijk'];
+const HISTORY=['Geen (eerste ontmoeting)','Kort (recent ontmoet)','Gemiddeld (kennen elkaar een tijdje)','Lang (jaren van geschiedenis)','Intens (veel meegemaakt samen)'];
+const EMOTION=['Positief','Negatief','Neutraal','Gemengd/ambivalent'];
+const WHERE=['Thuis','Werk','Openbaar','Buiten','Vervoer','Instituut','Horeca'];
+const WHENTIME=['Ochtend','Middag','Avond','Nacht'];
+const WHENSEASON=['Lente','Zomer','Herfst','Winter'];
+const ATMOS=['Gezellig','Gespannen','Intiem','Kil','Chaotisch','Neutraal'];
+const METHODS=[
+{id:'stanislavski',name:'Stanislavski System',desc:'Emotional memory and given circumstances'},
+{id:'method',name:'Method Acting (Strasberg)',desc:'Deep emotional immersion'},
+{id:'meisner',name:'Meisner Technique',desc:'Living truthfully under imaginary circumstances'},
+{id:'practical',name:'Practical Aesthetics',desc:'Action-based approach (Mamet)'},
+{id:'chekhov',name:'Chekhov Technique',desc:'Psychological gesture and imagination'},
+{id:'adler',name:'Stella Adler',desc:'Imagination over emotional memory'},
+{id:'hagen',name:'Uta Hagen',desc:'Substitution and transference'},
+{id:'viewpoints',name:'Viewpoints',desc:'Space, time, and movement awareness'},
+{id:'suzuki',name:'Suzuki Method',desc:'Physical training and energy from feet'},
+{id:'grotowski',name:'Grotowski',desc:'Poor theatre, via negativa'},
+{id:'brecht',name:'Brecht Verfremdungseffekt',desc:'Alienation effect, epic theatre'},
+{id:'commedia',name:"Commedia dell'Arte",desc:'Stock characters and improvisation'},
+{id:'physical',name:'Physical Theatre',desc:'Body as primary instrument'},
+{id:'biomechanics',name:'Biomechanics (Meyerhold)',desc:'Precise physical actions'},
+{id:'alba',name:'Alba Emoting',desc:'Breathing patterns create emotions'},
+{id:'laban',name:'Laban Movement Analysis',desc:'Effort, shape, space, body'},
+{id:'alexander',name:'Alexander Technique',desc:'Releasing tension, conscious control'},
+{id:'feldenkrais',name:'Feldenkrais',desc:'Awareness through movement'},
+{id:'bogart',name:'Anne Bogart',desc:'Viewpoints and composition'},
+{id:'morris',name:'Eric Morris',desc:'Being over acting'},
+{id:'rodenburg',name:'Patsy Rodenburg',desc:'Voice and presence circles'},
+{id:'linklater',name:'Kristin Linklater',desc:'Freeing the natural voice'},
+{id:'spolin',name:'Viola Spolin',desc:'Theatre games and improvisation'},
+{id:'johnstone',name:'Keith Johnstone',desc:'Status and spontaneity'},
+{id:'lecoq',name:'Jacques Lecoq',desc:'Movement, mime, and play'},
+{id:'suzuki2',name:'Tadashi Suzuki Extended',desc:'Speaking from the feet'},
+{id:'grotowski2',name:'Grotowski Extended',desc:'Total act, performer as shaman'},
+{id:'gesture',name:'Psychological Gesture',desc:'Full body character expression'},
+{id:'neutral',name:'Neutral Mask',desc:'Finding economy of movement'},
+{id:'rasaboxes',name:'Rasaboxes',desc:'Indian emotion system (9 rasas)'}
+];
+const FRAG={movement:{c:'frag-move',l:'Beweging',i:'🔵'},dialogue:{c:'frag-dial',l:'Dialoog',i:'🟢'},emotion:{c:'frag-emot',l:'Emotie',i:'🟠'},interaction:{c:'frag-inter',l:'Interactie',i:'🟣'}};
+const CATS=[{id:'normal',l:'Normaal',i:'✅'},{id:'exceptional',l:'Uitzonderlijk',i:'⭐'},{id:'extreme',l:'Extreem',i:'🔥'},{id:'comedic',l:'Komisch',i:'😄'},{id:'dramatic',l:'Dramatisch',i:'🎭'},{id:'minimal',l:'Minimalistisch',i:'🤫'}];
+
+let S={
+lang:'nl',apiKey:localStorage.getItem('at_key')||'',dark:localStorage.getItem('at_dark')==='true',onboard:!localStorage.getItem('at_done'),
+actor:{name:'',age:'',height:'',weight:'',build:'',notes:''},
+chars:[{id:1,name:'',age:'',isMain:true,rel:'',relC:'',pow:'',powC:'',hist:'',histC:'',emo:'',emoC:'',traits:''}],
+ctx:{who:'',what:'',where:'',whereC:'',whereD:'',whenT:'',whenTC:'',whenS:'',whenSC:'',whenD:'',why:'',atmos:'',atmosC:'',env:''},
+scenes:[],sceneIn:'',
+analysis:null,methods:[],methodMode:'optional',
+frags:[],selFrag:null,fragFilter:'all',
+choices:{},choiceAmt:50,showOpp:false,
+favs:JSON.parse(localStorage.getItem('at_favs')||'[]'),
+notes:JSON.parse(localStorage.getItem('at_notes')||'{}'),
+secret:'',chat:[],chatIn:'',goals:[],
+rehTime:120,rehActive:false,rehInt:null,
+loading:false,loadMsg:'',collapsed:{},expanded:{}
+};
+
+try{const x=localStorage.getItem('at_state');if(x){const p=JSON.parse(x);S={...S,...p,loading:false,rehActive:false}}}catch(e){}
+if(S.dark)document.documentElement.classList.add('dark');
+
+function save(){const t={...S};delete t.loading;delete t.loadMsg;delete t.rehInt;localStorage.setItem('at_state',JSON.stringify(t));localStorage.setItem('at_favs',JSON.stringify(S.favs));localStorage.setItem('at_notes',JSON.stringify(S.notes))}
+function esc(t){return t?String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):''}
+function togDark(){S.dark=!S.dark;document.documentElement.classList.toggle('dark',S.dark);localStorage.setItem('at_dark',S.dark);render()}
+function togCol(id){S.collapsed[id]=!S.collapsed[id];render()}
+function isOpen(id,d=true){return S.collapsed[id]===undefined?d:!S.collapsed[id]}
+
+function addChar(){if(S.chars.length>=6)return;S.chars.push({id:Date.now(),name:'',age:'',isMain:false,rel:'',relC:'',pow:'',powC:'',hist:'',histC:'',emo:'',emoC:'',traits:''});save();render()}
+function remChar(id){if(S.chars.length<=1)return;S.chars=S.chars.filter(c=>c.id!==id);save();render()}
+function updChar(id,f,v){const c=S.chars.find(x=>x.id===id);if(c){c[f]=v;save()}}
+
+function addScene(){const t=S.sceneIn.trim();if(!t)return;S.scenes.push({id:Date.now(),text:t,src:'paste'});S.sceneIn='';save();render()}
+function remScene(id){S.scenes=S.scenes.filter(s=>s.id!==id);save();render()}
+
+async function handleFiles(e){
+const files=Array.from(e.target.files);if(!files.length)return;
+S.loading=true;S.loadMsg='Bestanden inlezen...';render();
+let added=[];
+for(let i=0;i<files.length;i++){
+const file=files[i];
+S.loadMsg='Bestand '+(i+1)+'/'+files.length+': '+file.name;render();
+const ext=file.name.split('.').pop().toLowerCase();
+try{
+let text='';
+if(ext==='txt'){
+text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.onerror=rej;r.readAsText(file);});
+}
+else if(ext==='pdf'){
+const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.onerror=rej;r.readAsArrayBuffer(file);});
+const pdf=await pdfjsLib.getDocument(new Uint8Array(buf)).promise;
+let t='';for(let p=1;p<=pdf.numPages;p++){const pg=await pdf.getPage(p);const c=await pg.getTextContent();t+=c.items.map(x=>x.str).join(' ')+'\n\n';}
+text=t.trim();
+}
+else if(ext==='docx'){
+const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.onerror=rej;r.readAsArrayBuffer(file);});
+const result=await mammoth.extractRawText({arrayBuffer:buf});
+text=result.value;
+}
+else{continue;}
+if(text.trim()){
+S.scenes.push({id:Date.now()+i,text:text.trim(),src:ext,name:file.name});
+added.push(file.name);
+}
+}catch(err){alert('Fout bij '+file.name+': '+err.message);}
+}
+S.loading=false;save();render();
+e.target.value='';
+}
+
+async function callAI(p){
+if(!S.apiKey){alert('Voer eerst je Claude API key in!');return null}
+try{
+const r=await fetch('https://api.anthropic.com/v1/messages',{
+method:'POST',headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01'},
+body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4096,messages:[{role:'user',content:p}]})
+});
+if(!r.ok)throw new Error('API Error: '+r.status);
+const d=await r.json();return d.content[0].text;
+}catch(e){alert('Fout: '+e.message);return null}
+}
+
+async function analyze(){
+if(S.scenes.length===0){alert('Voeg eerst een scene toe!');return}
+S.loading=true;S.loadMsg='Analyseren...';render();
+const txt=S.scenes.map((s,i)=>'SCENE '+(i+1)+':\\n'+s.text).join('\\n\\n');
+const mainChar=S.chars.find(c=>c.isMain)||S.chars[0];
+const otherChars=S.chars.filter(c=>!c.isMain);
+const chars=otherChars.map(c=>'- '+(c.name||'?')+': rel='+(c.rel||c.relC||'?')+', macht='+(c.pow||c.powC||'?')).join('\\n');
+const p=`Je bent een expert acteercoach. Analyseer in het ${LANG[S.lang]}.
+
+ACTOR: ${S.actor.name||'?'}, ${S.actor.age||'?'} jaar, ${S.actor.build||'?'}
+${S.actor.notes?'Bijzonderheden: '+S.actor.notes:''}
+
+MIJN PERSONAGE (hoofdrol): ${mainChar.name||'Hoofdpersonage'}, ${mainChar.age||'?'} jaar
+Eigenschappen: ${mainChar.traits||'-'}
+
+ANDERE PERSONAGES IN DE SCENE:
+${chars||'Geen andere personages opgegeven'}
+
+CONTEXT:
+Wie: ${S.ctx.who||'-'}
+Wat: ${S.ctx.what||'-'}
+Waar: ${S.ctx.where||S.ctx.whereC||'-'} ${S.ctx.whereD||''}
+Wanneer: ${S.ctx.whenT||S.ctx.whenTC||''} ${S.ctx.whenS||S.ctx.whenSC||''} ${S.ctx.whenD||''}
+Waarom: ${S.ctx.why||'-'}
+Sfeer: ${S.ctx.atmos||S.ctx.atmosC||'-'}
+
+SCENE(S):
+${txt}
+
+Geef analyse met 12 punten:
+1. Scene breakdown (begin/midden/eind)
+2. Emotionele arc
+3. Actiemomenten
+4. Conflict/spanning
+5. Subtext
+6. Relatie dynamiek
+7. Invloed omstandigheden
+8. Obstacles
+9. Keerpunten
+10. Stakes
+11. Tactiek
+12. Geheimen
+
+Wees specifiek en praktisch.`;
+const res=await callAI(p);
+if(res){S.analysis=res;save();await extractFrags()}
+S.loading=false;render();
+}
+
+async function extractFrags(){
+S.loadMsg='Fragmenten...';render();
+const txt=S.scenes.map(s=>s.text).join('\\n');
+const p=`Extraheer ALLE speelbare fragmenten uit deze scene.
+Categorieën: movement, dialogue, emotion, interaction
+Return ALLEEN JSON array: [{"text":"...", "type":"movement"}, ...]
+Minimum 10 fragmenten.
+
+SCENE:
+${txt}`;
+const res=await callAI(p);
+if(res){try{S.frags=JSON.parse(res.replace(/\`\`\`json|\`\`\`/g,'').trim()).map((f,i)=>({...f,id:i}));save()}catch(e){S.frags=[]}}
+}
+
+async function genChoices(frag){
+S.selFrag=frag;S.loading=true;S.loadMsg='Keuzes genereren...';render();
+const meth=S.methods.length?S.methods.map(id=>METHODS.find(m=>m.id===id)?.name).join(', '):'Geen';
+const mainChar=S.chars.find(c=>c.isMain)||S.chars[0];
+const p=`Genereer ${S.choiceAmt} acteer-keuzes in het ${LANG[S.lang]}.
+
+ACTOR: ${S.actor.name||'?'}
+MIJN PERSONAGE: ${mainChar.name||'Hoofdpersonage'}
+CONTEXT: ${S.ctx.why||'-'}
+${S.secret?'GEHEIM: '+S.secret:''}
+METHODE: ${meth}
+
+FRAGMENT: "${frag.text}"
+TYPE: ${frag.type}
+
+Categorieën: normal, exceptional, extreme, comedic, dramatic, minimal
+${S.showOpp?'Geef ook tegengestelden. Format: {"choice":"...","opposite":"..."}':''}
+
+Return JSON:
+{"normal":[${S.showOpp?'{"choice":"...","opposite":"..."}':'"..."'},...],
+"exceptional":[...],"extreme":[...],"comedic":[...],"dramatic":[...],"minimal":[...]}`;
+const res=await callAI(p);
+if(res){try{S.choices[frag.id]=JSON.parse(res.replace(/\`\`\`json|\`\`\`/g,'').trim());save()}catch(e){}}
+S.loading=false;render();
+}
+
+async function wildCard(){
+if(!S.selFrag){alert('Selecteer eerst een fragment!');return}
+S.loading=true;S.loadMsg='Wild Card... 🃏';render();
+const p=`Genereer 15 ABSURDE, BIZARRE acteer-keuzes voor: "${S.selFrag.text}"
+Denk aan Artaud, Grotowski, absurdisme. Return JSON: [{"choice":"...","why":"..."},...]`;
+const res=await callAI(p);
+if(res){try{if(!S.choices[S.selFrag.id])S.choices[S.selFrag.id]={};S.choices[S.selFrag.id].wildcard=JSON.parse(res.replace(/\`\`\`json|\`\`\`/g,'').trim());save()}catch(e){}}
+S.loading=false;render();
+}
+
+async function famous(){
+if(!S.selFrag){alert('Selecteer eerst een fragment!');return}
+S.loading=true;S.loadMsg='Beroemde keuzes... ⭐';render();
+const p=`Geef 10 ICONISCHE keuzes van beroemde acteurs voor dit type moment.
+FRAGMENT: "${S.selFrag.text}"
+Return JSON: [{"actor":"...","film":"...","choice":"...","why":"..."},...]`;
+const res=await callAI(p);
+if(res){try{if(!S.choices[S.selFrag.id])S.choices[S.selFrag.id]={};S.choices[S.selFrag.id].famous=JSON.parse(res.replace(/\`\`\`json|\`\`\`/g,'').trim());save()}catch(e){}}
+S.loading=false;render();
+}
+
+async function askChat(){
+const q=S.chatIn.trim();if(!q)return;
+S.chat.push({role:'user',c:q});S.chatIn='';S.loading=true;S.loadMsg='AI denkt...';render();
+const p=`Je bent een acteercoach. Context: ${S.analysis?S.analysis.substring(0,800):'Geen analyse'}
+Fragment: ${S.selFrag?.text||'Geen'}
+Vraag: ${q}
+Antwoord in ${LANG[S.lang]}.`;
+const res=await callAI(p);
+if(res){S.chat.push({role:'ai',c:res});save()}
+S.loading=false;render();
+}
+
+function togFav(ch,cat){
+const t=typeof ch==='object'?ch.choice:ch;
+const i=S.favs.findIndex(f=>f.choice===t);
+if(i>=0)S.favs.splice(i,1);else S.favs.push({choice:t,cat,frag:S.selFrag?.text||'',ts:Date.now()});
+save();render();
+}
+function isFav(ch){const t=typeof ch==='object'?ch.choice:ch;return S.favs.some(f=>f.choice===t)}
+
+function addGoal(){const t=prompt('Doelstelling:');if(t){S.goals.push({id:Date.now(),t,done:false});save();render()}}
+function togGoal(id){const g=S.goals.find(x=>x.id===id);if(g){g.done=!g.done;save();render()}}
+function remGoal(id){S.goals=S.goals.filter(g=>g.id!==id);save();render()}
+
+function startReh(){S.rehActive=true;S.rehInt=setInterval(()=>{S.rehTime--;if(S.rehTime<=0){stopReh();alert('⏰ Tijd om!')}render()},1000);render()}
+function stopReh(){S.rehActive=false;if(S.rehInt){clearInterval(S.rehInt);S.rehInt=null}render()}
+function resetReh(s=120){stopReh();S.rehTime=s;render()}
+
+function exportData(){
+const d={date:new Date().toISOString(),actor:S.actor,chars:S.chars,ctx:S.ctx,scenes:S.scenes,analysis:S.analysis,frags:S.frags,choices:S.choices,favs:S.favs,notes:S.notes,goals:S.goals};
+const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='actors-tool-'+Date.now()+'.json';a.click();
+}
+
+function closeOnboard(){S.onboard=false;localStorage.setItem('at_done','1');render()}
+
+function dd(id,v,cv,opts,chg,chgC,ph='Selecteer...'){
+let h='<select onchange="'+chg+'" class="w-full px-2 py-1 text-sm border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"><option value="">'+ph+'</option>';
+opts.forEach(o=>{h+='<option value="'+esc(o)+'"'+(v===o?' selected':'')+'>'+esc(o)+'</option>'});
+h+='<option value="_other"'+(v==='_other'?' selected':'')+'>Anders...</option></select>';
+if(v==='_other')h+='<input type="text" value="'+esc(cv)+'" onchange="'+chgC+'" placeholder="Vul in..." class="w-full mt-1 px-2 py-1 text-sm border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">';
+return h;
+}
+
+function sec(id,title,icon,content,badge='',def=true){
+const op=isOpen(id,def);
+return '<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 mb-4">'+
+'<button onclick="togCol(\''+id+'\')" class="w-full px-4 py-3 flex justify-between items-center bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-xl">'+
+'<div class="flex items-center gap-2"><span>'+icon+'</span><span class="font-semibold dark:text-gray-200">'+title+'</span>'+(badge?'<span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs rounded-full">'+badge+'</span>':'')+'</div>'+
+'<span class="text-gray-500">'+(op?'▲':'▼')+'</span></button>'+(op?'<div class="p-4">'+content+'</div>':'')+'</div>';
+}
+
+function render(){
+const app=document.getElementById('app');
+let h='';
+
+// Loading
+if(S.loading)h+='<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div class="bg-white dark:bg-gray-800 rounded-xl p-6 flex items-center gap-4"><div class="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div><span class="dark:text-gray-200">'+S.loadMsg+'</span></div></div>';
+
+// Onboarding
+if(S.onboard)h+='<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto"><div class="text-center mb-6"><span class="text-6xl">🎭</span><h2 class="text-2xl font-bold mt-4 dark:text-gray-100">Actor\'s Tool V2</h2><p class="text-gray-500 mt-2">Complete Edition - Alle features</p></div><div class="space-y-3 text-sm dark:text-gray-300"><p>1️⃣ <b>Profiel</b> - Vul je acteur gegevens in</p><p>2️⃣ <b>Personages</b> - Max 6, met relaties</p><p>3️⃣ <b>Context</b> - De 5 W\'s (optioneel)</p><p>4️⃣ <b>Scene</b> - Plak of upload tekst</p><p>5️⃣ <b>Analyseer</b> - AI geeft 12-punts analyse</p><p>6️⃣ <b>Fragmenten</b> - Klik voor keuzes!</p></div><div class="mt-6 p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg text-sm"><p class="text-yellow-800 dark:text-yellow-200">💡 API key nodig: <a href="https://console.anthropic.com" target="_blank" class="underline">console.anthropic.com</a></p></div><button onclick="closeOnboard()" class="w-full mt-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700">Aan de slag! 🚀</button></div></div>';
+
+// Header
+h+='<header class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg"><div class="max-w-7xl mx-auto"><div class="flex flex-wrap items-center justify-between gap-4"><div class="flex items-center gap-3"><span class="text-3xl">🎭</span><div><h1 class="text-xl font-bold">Actor\'s Tool V2</h1><p class="text-purple-200 text-sm">Complete Edition</p></div></div><div class="flex items-center gap-2"><select onchange="S.lang=this.value;save();render()" class="px-3 py-1 rounded bg-white/20 text-sm">';
+Object.entries(LANG).forEach(([c,n])=>{h+='<option value="'+c+'"'+(S.lang===c?' selected':'')+' class="text-gray-900">'+n+'</option>'});
+h+='</select><button onclick="togDark()" class="p-2 rounded bg-white/20 hover:bg-white/30">'+(S.dark?'☀️':'🌙')+'</button><button onclick="S.onboard=true;render()" class="p-2 rounded bg-white/20 hover:bg-white/30">❓</button><button onclick="exportData()" class="px-3 py-1 rounded bg-white/20 hover:bg-white/30">📥</button></div></div>';
+h+='<div class="mt-3 flex items-center gap-2"><span>🔑</span><input type="password" value="'+esc(S.apiKey)+'" onchange="S.apiKey=this.value;localStorage.setItem(\'at_key\',this.value)" placeholder="Claude API Key..." class="flex-1 max-w-sm px-3 py-1 rounded bg-white/20 border border-white/30 placeholder-purple-300">'+(S.apiKey?'<span class="text-green-400">✓</span>':'<span class="text-yellow-300 text-xs">Vereist</span>')+'</div></div></header>';
+
+// Main
+h+='<main class="max-w-7xl mx-auto p-4"><div class="grid grid-cols-1 lg:grid-cols-12 gap-6">';
+
+// LEFT
+h+='<div class="lg:col-span-3 space-y-4">';
+
+// Profile
+let prof='<div class="space-y-2"><input type="text" value="'+esc(S.actor.name)+'" onchange="S.actor.name=this.value;save()" placeholder="Naam" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"><div class="grid grid-cols-2 gap-2"><input type="number" value="'+esc(S.actor.age)+'" onchange="S.actor.age=this.value;save()" placeholder="Leeftijd" class="px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"><input type="number" value="'+esc(S.actor.height)+'" onchange="S.actor.height=this.value;save()" placeholder="Lengte cm" class="px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"></div><div class="grid grid-cols-2 gap-2"><input type="number" value="'+esc(S.actor.weight)+'" onchange="S.actor.weight=this.value;save()" placeholder="Gewicht kg" class="px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"><select onchange="S.actor.build=this.value;save()" class="px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"><option value="">Postuur...</option>';
+BUILD.forEach(b=>{prof+='<option'+(S.actor.build===b?' selected':'')+'>'+b+'</option>'});
+prof+='</select></div><textarea onchange="S.actor.notes=this.value;save()" placeholder="Bijzonderheden..." rows="2" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">'+esc(S.actor.notes)+'</textarea></div>';
+h+=sec('prof','Actor Profiel','👤',prof);
+
+// Characters
+let chars='<div class="space-y-3">';
+S.chars.forEach((c,i)=>{
+chars+='<div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2"><div class="flex justify-between"><span class="text-sm text-gray-500">Personage '+(i+1)+'</span>'+(S.chars.length>1?'<button onclick="remChar('+c.id+')" class="text-red-500 text-sm">🗑️</button>':'')+'</div>';
+chars+='<label class="flex items-center gap-2 p-2 rounded '+(c.isMain?'bg-purple-100 dark:bg-purple-900/50':'bg-gray-100 dark:bg-gray-600')+' cursor-pointer"><input type="checkbox" '+(c.isMain?'checked':'')+' onchange="S.chars.forEach(x=>x.isMain=false);updChar('+c.id+',\'isMain\',this.checked);render()"><span class="text-sm font-medium '+(c.isMain?'text-purple-700 dark:text-purple-300':'dark:text-gray-300')+'">⭐ Dit is MIJN personage</span></label>';
+chars+='<div class="grid grid-cols-3 gap-2"><input type="text" value="'+esc(c.name)+'" onchange="updChar('+c.id+',\'name\',this.value);render()" placeholder="Naam" class="col-span-2 px-2 py-1 text-sm border rounded dark:bg-gray-600 dark:border-gray-500 dark:text-gray-100"><input type="number" value="'+esc(c.age)+'" onchange="updChar('+c.id+',\'age\',this.value);render()" placeholder="Leeftijd" class="px-2 py-1 text-sm border rounded dark:bg-gray-600 dark:border-gray-500 dark:text-gray-100"></div>';
+chars+='<div><span class="text-xs text-gray-500">Relatie</span>'+dd('r'+c.id,c.rel,c.relC,RELATION,"updChar("+c.id+",'rel',this.value);render()","updChar("+c.id+",'relC',this.value)")+'</div>';
+chars+='<div><span class="text-xs text-gray-500">Macht</span>'+dd('p'+c.id,c.pow,c.powC,POWER,"updChar("+c.id+",'pow',this.value);render()","updChar("+c.id+",'powC',this.value)")+'</div>';
+chars+='<div><span class="text-xs text-gray-500">Geschiedenis</span>'+dd('h'+c.id,c.hist,c.histC,HISTORY,"updChar("+c.id+",'hist',this.value);render()","updChar("+c.id+",'histC',this.value)")+'</div>';
+chars+='<div><span class="text-xs text-gray-500">Emotie</span>'+dd('e'+c.id,c.emo,c.emoC,EMOTION,"updChar("+c.id+",'emo',this.value);render()","updChar("+c.id+",'emoC',this.value)")+'</div>';
+chars+='<textarea onchange="updChar('+c.id+',\'traits\',this.value)" placeholder="Eigenschappen" rows="2" class="w-full px-2 py-1 text-sm border rounded dark:bg-gray-600 dark:border-gray-500 dark:text-gray-100">'+esc(c.traits)+'</textarea></div>';
+});
+if(S.chars.length<6)chars+='<button onclick="addChar()" class="w-full py-2 border-2 border-dashed rounded-lg text-gray-500 hover:border-purple-400 hover:text-purple-600">➕ Personage</button>';
+chars+='</div>';
+h+=sec('chars','Personages','👥',chars,S.chars.length+'/6');
+
+// Context
+let ctx='<p class="text-xs text-gray-500 mb-2 italic">Alle velden optioneel</p><div class="space-y-2">';
+ctx+='<div><span class="text-sm font-medium dark:text-gray-300">WIE</span><textarea onchange="S.ctx.who=this.value;save()" placeholder="Wie ben je?" rows="2" class="w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">'+esc(S.ctx.who)+'</textarea></div>';
+ctx+='<div><span class="text-sm font-medium dark:text-gray-300">WAT</span><textarea onchange="S.ctx.what=this.value;save()" placeholder="Wat kom je doen?" rows="2" class="w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">'+esc(S.ctx.what)+'</textarea></div>';
+ctx+='<div><span class="text-sm font-medium dark:text-gray-300">WAAR</span>'+dd('ctxw',S.ctx.where,S.ctx.whereC,WHERE,"S.ctx.where=this.value;save();render()","S.ctx.whereC=this.value;save()")+'<input type="text" value="'+esc(S.ctx.whereD)+'" onchange="S.ctx.whereD=this.value;save()" placeholder="Details..." class="w-full mt-1 px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"></div>';
+ctx+='<div><span class="text-sm font-medium dark:text-gray-300">WANNEER</span><div class="grid grid-cols-2 gap-2">'+dd('ctxt',S.ctx.whenT,S.ctx.whenTC,WHENTIME,"S.ctx.whenT=this.value;save();render()","S.ctx.whenTC=this.value;save()",'Tijd...')+dd('ctxs',S.ctx.whenS,S.ctx.whenSC,WHENSEASON,"S.ctx.whenS=this.value;save();render()","S.ctx.whenSC=this.value;save()",'Seizoen...')+'</div><input type="text" value="'+esc(S.ctx.whenD)+'" onchange="S.ctx.whenD=this.value;save()" placeholder="Details (jaar, periode, bijzonderheden...)" class="w-full mt-1 px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"></div>';
+ctx+='<div><span class="text-sm font-medium dark:text-gray-300">WAAROM</span><textarea onchange="S.ctx.why=this.value;save()" placeholder="Waarom ben je hier?" rows="2" class="w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">'+esc(S.ctx.why)+'</textarea></div>';
+ctx+='<div><span class="text-sm font-medium dark:text-gray-300">SFEER</span>'+dd('ctxa',S.ctx.atmos,S.ctx.atmosC,ATMOS,"S.ctx.atmos=this.value;save();render()","S.ctx.atmosC=this.value;save()")+'</div>';
+ctx+='<div><span class="text-sm font-medium dark:text-gray-300">OMGEVING</span><textarea onchange="S.ctx.env=this.value;save()" placeholder="Wat zie/hoor/ruik je?" rows="2" class="w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">'+esc(S.ctx.env)+'</textarea></div></div>';
+h+=sec('ctx',"Context (5 W's)",'📍',ctx,'',false);
+
+// Methods
+let meth='<div class="space-y-2"><div class="flex gap-1 flex-wrap">';
+['optional','single','combine','compare'].forEach(m=>{
+const l={optional:'Optioneel',single:'Eén',combine:'Combineer',compare:'Vergelijk'}[m];
+meth+='<button onclick="S.methodMode=\''+m+'\';if(\''+m+'\'===\'single\')S.methods=S.methods.slice(0,1);save();render()" class="px-2 py-1 text-xs rounded-full '+(S.methodMode===m?'bg-purple-600 text-white':'bg-gray-200 dark:bg-gray-600 dark:text-gray-300')+'">'+l+'</button>';
+});
+meth+='</div><div class="max-h-40 overflow-y-auto space-y-1 scrollbar-thin">';
+METHODS.forEach(m=>{
+const sel=S.methods.includes(m.id);
+const can=S.methodMode==='optional'||S.methodMode==='compare'||(S.methodMode==='single'&&(sel||S.methods.length===0))||(S.methodMode==='combine'&&(sel||S.methods.length<3));
+meth+='<label class="flex items-start gap-2 p-1 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 '+(sel?'bg-purple-50 dark:bg-purple-900/30':'')+' '+(!can&&!sel?'opacity-50':'')+'"><input type="checkbox" '+(sel?'checked':'')+' '+(!can&&!sel?'disabled':'')+' onchange="if(this.checked){if(S.methodMode===\'single\')S.methods=[\''+m.id+'\'];else S.methods.push(\''+m.id+'\');}else{S.methods=S.methods.filter(x=>x!==\''+m.id+'\');}save();render();" class="mt-1"><div><div class="text-sm dark:text-gray-200">'+m.name+'</div><div class="text-xs text-gray-500">'+m.desc+'</div></div></label>';
+});
+meth+='</div></div>';
+h+=sec('meth','Acteermethodes','🎬',meth,S.methods.length||'',false);
+
+h+='</div>'; // end left
+
+// MIDDLE
+h+='<div class="lg:col-span-6 space-y-4">';
+
+// Scene Input
+let scene='<div class="space-y-3"><label class="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/50 dark:to-indigo-900/50 text-purple-700 dark:text-purple-300 rounded-lg cursor-pointer hover:from-purple-200 hover:to-indigo-200 dark:hover:from-purple-800/50 dark:hover:to-indigo-800/50 border-2 border-dashed border-purple-300 dark:border-purple-700"><span class="text-lg">📁</span><span class="font-medium">Upload scenes</span><span class="text-xs opacity-75">(TXT, PDF, DOCX - meerdere tegelijk)</span><input type="file" accept=".txt,.pdf,.docx" multiple onchange="handleFiles(event)" class="hidden"></label>';
+if(S.scenes.length){
+scene+='<div class="space-y-2">';
+S.scenes.forEach((s,i)=>{
+const icon=s.src==='pdf'?'📕':s.src==='docx'?'📘':'📄';
+scene+='<div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 '+(s.src==='pdf'?'border-red-400':s.src==='docx'?'border-blue-400':'border-purple-400')+'"><div class="flex justify-between items-start gap-2"><div class="flex-1 min-w-0"><div class="flex items-center gap-2"><span>'+icon+'</span><span class="font-medium dark:text-gray-200">Scene '+(i+1)+'</span>'+(s.name?'<span class="text-xs text-gray-500 truncate">'+esc(s.name)+'</span>':'')+'</div><p class="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">'+esc(s.text.substring(0,150))+(s.text.length>150?'...':'')+'</p></div><button onclick="remScene('+s.id+')" class="text-red-500 hover:text-red-700 p-1">🗑️</button></div></div>';
+});
+scene+='</div>';
+}
+scene+='<div class="relative"><span class="absolute left-3 top-3 text-gray-400 text-sm">Of plak tekst:</span><textarea id="sceneIn" oninput="S.sceneIn=this.value" placeholder="" rows="4" class="w-full px-3 pt-8 pb-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">'+esc(S.sceneIn)+'</textarea></div><button onclick="S.sceneIn=document.getElementById(\'sceneIn\').value;addScene()" class="w-full py-2 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-800">➕ Tekst als Scene Toevoegen</button>';
+scene+='<button onclick="analyze()" '+(S.scenes.length===0?'disabled':'')+' class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50">✨ Analyseer</button></div>';
+h+=sec('scene','Scene Invoer','📄',scene,S.scenes.length?S.scenes.length+' scene(s)':'');
+
+// Analysis
+if(S.analysis){
+h+=sec('ana','Analyse','🧠','<div class="prose dark:prose-invert max-w-none text-sm max-h-64 overflow-y-auto scrollbar-thin whitespace-pre-wrap">'+esc(S.analysis)+'</div>');
+}
+
+// Fragments
+if(S.frags.length){
+let frags='<div class="space-y-3"><div class="flex gap-1 flex-wrap text-xs">';
+Object.entries(FRAG).forEach(([t,f])=>{frags+='<span class="px-2 py-1 rounded-full '+f.c+' border">'+f.i+' '+f.l+'</span>'});
+frags+='</div><div class="flex gap-1 flex-wrap"><button onclick="S.fragFilter=\'all\';render()" class="px-2 py-1 text-sm rounded-full '+(S.fragFilter==='all'?'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-800':'bg-gray-200 dark:bg-gray-600 dark:text-gray-300')+'">Alle ('+S.frags.length+')</button>';
+Object.entries(FRAG).forEach(([t,f])=>{
+const cnt=S.frags.filter(x=>x.type===t).length;
+frags+='<button onclick="S.fragFilter=\''+t+'\';render()" class="px-2 py-1 text-sm rounded-full '+(S.fragFilter===t?'ring-2 ring-purple-500':'')+' '+f.c+' border">'+f.i+' '+cnt+'</button>';
+});
+frags+='</div><div class="space-y-2 max-h-48 overflow-y-auto scrollbar-thin">';
+S.frags.filter(f=>S.fragFilter==='all'||f.type===S.fragFilter).forEach(f=>{
+const info=FRAG[f.type]||FRAG.movement;
+frags+='<button onclick="genChoices(S.frags.find(x=>x.id==='+f.id+'))" class="w-full text-left p-2 rounded-lg border-2 '+info.c+' '+(S.selFrag?.id===f.id?'ring-2 ring-purple-500':'')+'"><div class="font-medium">'+esc(f.text)+'</div><div class="text-xs opacity-75">'+info.i+' '+info.l+'</div></button>';
+});
+frags+='</div></div>';
+h+=sec('frags','Fragmenten','🎨',frags,S.frags.length);
+}
+
+// Chat
+let chat='<div class="space-y-2">';
+if(S.chat.length){
+chat+='<div class="max-h-32 overflow-y-auto space-y-2 scrollbar-thin">';
+S.chat.forEach(m=>{chat+='<div class="p-2 rounded '+(m.role==='user'?'bg-purple-100 dark:bg-purple-900/50 ml-4':'bg-gray-100 dark:bg-gray-700 mr-4')+'"><p class="text-sm">'+esc(m.c)+'</p></div>'});
+chat+='</div>';
+}else{chat+='<p class="text-sm text-gray-500 italic">Stel een vraag over je scene...</p>'}
+chat+='<div class="flex gap-2"><input type="text" id="chatIn" value="'+esc(S.chatIn)+'" oninput="S.chatIn=this.value" onkeydown="if(event.key===\'Enter\'){S.chatIn=this.value;askChat()}" placeholder="Vraag..." class="flex-1 px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"><button onclick="S.chatIn=document.getElementById(\'chatIn\').value;askChat()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">💬</button></div></div>';
+h+=sec('chat','Vraag AI','💬',chat,'',false);
+
+h+='</div>'; // end middle
+
+// RIGHT
+h+='<div class="lg:col-span-3 space-y-4">';
+
+// Secret
+if(S.selFrag){
+h+=sec('secret','Geheim','🔒','<textarea onchange="S.secret=this.value;save()" placeholder="Wat weet jouw personage dat niemand weet?" rows="2" class="w-full px-3 py-2 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">'+esc(S.secret)+'</textarea>','',false);
+}
+
+// Choice Settings
+if(S.selFrag){
+let settings='<div class="space-y-3"><div><span class="text-sm dark:text-gray-300">Aantal: '+S.choiceAmt+'</span><input type="range" min="10" max="100" step="10" value="'+S.choiceAmt+'" onchange="S.choiceAmt=parseInt(this.value);save();render()" class="w-full"></div>';
+settings+='<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" '+(S.showOpp?'checked':'')+' onchange="S.showOpp=this.checked;save();render()"><span class="text-sm dark:text-gray-300">Tegengestelden</span></label>';
+settings+='<div class="flex gap-2"><button onclick="wildCard()" class="flex-1 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 text-sm">🃏 Wild</button><button onclick="famous()" class="flex-1 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm">⭐ Beroemd</button></div></div>';
+h+=sec('settings','Instellingen','⚙️',settings);
+}
+
+// Choices
+if(S.selFrag&&S.choices[S.selFrag.id]){
+let ch='<div class="space-y-3 max-h-96 overflow-y-auto scrollbar-thin"><p class="text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 p-2 rounded">"'+esc(S.selFrag.text)+'"</p>';
+CATS.forEach(cat=>{
+const items=S.choices[S.selFrag.id][cat.id]||[];
+if(items.length){
+const expKey='ch_'+S.selFrag.id+'_'+cat.id;
+const isExp=S.expanded[expKey];
+const showItems=isExp?items:items.slice(0,8);
+ch+='<div><h4 class="font-medium text-sm dark:text-gray-300 mb-1">'+cat.i+' '+cat.l+' ('+items.length+')</h4><div class="space-y-1">';
+showItems.forEach(c=>{
+const t=typeof c==='object'?c.choice:c;
+const o=typeof c==='object'?c.opposite:null;
+ch+='<div class="p-2 bg-gray-50 dark:bg-gray-700 rounded flex justify-between items-start gap-2"><div><p class="text-sm">'+esc(t)+'</p>'+(S.showOpp&&o?'<p class="text-xs text-gray-500">↔️ '+esc(o)+'</p>':'')+'</div><button onclick="togFav(\''+esc(t).replace(/'/g,"\\'")+'\',\''+cat.id+'\')" class="'+(isFav(c)?'text-red-500':'text-gray-400')+'">'+(isFav(c)?'❤️':'🤍')+'</button></div>';
+});
+if(items.length>8){ch+='<button onclick="S.expanded[\''+expKey+'\']=!S.expanded[\''+expKey+'\'];render()" class="w-full py-1 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded">'+(isExp?'▲ Toon minder':'▼ Toon alle '+items.length+' keuzes')+'</button>';}
+ch+='</div></div>';
+}});
+if(S.choices[S.selFrag.id].wildcard){
+const wcItems=S.choices[S.selFrag.id].wildcard;
+const wcExp=S.expanded['wc_'+S.selFrag.id];
+const wcShow=wcExp?wcItems:wcItems.slice(0,5);
+ch+='<div><h4 class="font-medium text-sm text-orange-600 mb-1">🃏 Wild Card ('+wcItems.length+')</h4><div class="space-y-1">';
+wcShow.forEach(c=>{ch+='<div class="p-2 bg-orange-50 dark:bg-orange-900/30 rounded"><p class="text-sm font-medium">'+esc(c.choice)+'</p><p class="text-xs text-gray-500">'+esc(c.why)+'</p></div>'});
+if(wcItems.length>5){ch+='<button onclick="S.expanded[\'wc_'+S.selFrag.id+'\']=!S.expanded[\'wc_'+S.selFrag.id+'\'];render()" class="w-full py-1 text-xs text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded">'+(wcExp?'▲ Toon minder':'▼ Toon alle '+wcItems.length)+'</button>';}
+ch+='</div></div>';
+}
+if(S.choices[S.selFrag.id].famous){
+const fmItems=S.choices[S.selFrag.id].famous;
+const fmExp=S.expanded['fm_'+S.selFrag.id];
+const fmShow=fmExp?fmItems:fmItems.slice(0,5);
+ch+='<div><h4 class="font-medium text-sm text-yellow-600 mb-1">⭐ Beroemd ('+fmItems.length+')</h4><div class="space-y-1">';
+fmShow.forEach(c=>{ch+='<div class="p-2 bg-yellow-50 dark:bg-yellow-900/30 rounded"><p class="text-sm font-medium">'+esc(c.actor)+' - '+esc(c.film)+'</p><p class="text-sm">'+esc(c.choice)+'</p></div>'});
+if(fmItems.length>5){ch+='<button onclick="S.expanded[\'fm_'+S.selFrag.id+'\']=!S.expanded[\'fm_'+S.selFrag.id+'\'];render()" class="w-full py-1 text-xs text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 rounded">'+(fmExp?'▲ Toon minder':'▼ Toon alle '+fmItems.length)+'</button>';}
+ch+='</div></div>';
+}
+ch+='</div>';
+h+=sec('choices','Keuzes','✨',ch);
+}
+
+// Favorites
+let fav=S.favs.length?'<div class="space-y-1 max-h-32 overflow-y-auto scrollbar-thin">'+S.favs.map(f=>'<div class="p-2 bg-pink-50 dark:bg-pink-900/30 rounded flex justify-between items-start gap-2"><div><p class="text-sm">'+esc(f.choice)+'</p><p class="text-xs text-gray-500">'+esc(f.frag)+'</p></div><button onclick="togFav(\''+esc(f.choice).replace(/'/g,"\\'")+'\',\'\')" class="text-red-500">🗑️</button></div>').join('')+'</div>':'<p class="text-sm text-gray-500 italic">Nog geen favorieten</p>';
+h+=sec('favs','Favorieten','❤️',fav,S.favs.length||'',false);
+
+// Notes
+if(S.selFrag){
+h+=sec('notes','Notities','📝','<textarea onchange="S.notes['+S.selFrag.id+']=this.value;save()" placeholder="Jouw notities..." rows="3" class="w-full px-3 py-2 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">'+esc(S.notes[S.selFrag.id]||'')+'</textarea>','',false);
+}
+
+// Goals
+let goals='<div class="space-y-2">';
+S.goals.forEach(g=>{goals+='<div class="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded"><input type="checkbox" '+(g.done?'checked':'')+' onchange="togGoal('+g.id+')"><span class="flex-1 text-sm '+(g.done?'line-through text-gray-400':'dark:text-gray-200')+'">'+esc(g.t)+'</span><button onclick="remGoal('+g.id+')" class="text-red-500 text-sm">🗑️</button></div>'});
+goals+='<button onclick="addGoal()" class="w-full py-2 border-2 border-dashed rounded text-gray-500 hover:border-purple-400 hover:text-purple-600 text-sm">🎯 Doel toevoegen</button></div>';
+h+=sec('goals','Doelstellingen','🎯',goals,S.goals.length?S.goals.filter(g=>g.done).length+'/'+S.goals.length:'',false);
+
+// Rehearsal
+const m=Math.floor(S.rehTime/60),s=S.rehTime%60;
+let reh='<div class="text-center space-y-3"><div class="text-4xl font-mono font-bold text-purple-600 dark:text-purple-400">'+m+':'+(s<10?'0':'')+s+'</div><div class="flex gap-2 justify-center">';
+if(!S.rehActive)reh+='<button onclick="startReh()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">▶️ Start</button>';
+else reh+='<button onclick="stopReh()" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">⏸️ Stop</button>';
+reh+='<button onclick="resetReh()" class="px-3 py-2 bg-gray-200 dark:bg-gray-600 rounded">🔄</button></div><div class="flex gap-2 justify-center">';
+[60,120,180,300].forEach(x=>{reh+='<button onclick="resetReh('+x+')" class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded">'+(x/60)+'m</button>'});
+reh+='</div></div>';
+h+=sec('reh','Rehearsal','⏱️',reh,'',false);
+
+h+='</div>'; // end right
+h+='</div></main>';
+
+app.innerHTML=h;
+}
+
+render();
+</script>
+</body>
+</html>
