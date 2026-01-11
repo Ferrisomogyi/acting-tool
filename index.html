@@ -196,26 +196,114 @@ if(S.scenes.length===0){alert('Voeg eerst een scene toe!');return}
 S.loading=true;S.loadMsg='Analyseren...';render();
 const txt=S.scenes.map((s,i)=>'SCENE '+(i+1)+':\n'+s.text).join('\n\n');
 const mainChar=S.chars.find(c=>c.isMain)||S.chars[0];
-const p=`Expert acteercoach. Analyseer in ${LANG[S.lang]}.
+const selectedMethods=S.methods.map(id=>METHODS.find(m=>m.id===id)).filter(Boolean);
 
-ACTOR: ${S.actor.name||'?'}, ${S.actor.age||'?'} jaar, ${S.actor.height||'?'}cm, ${S.actor.weight||'?'}kg, ${S.actor.build||'?'}
+let methodPrompt='';
+if(selectedMethods.length>0){
+const methodDetails=selectedMethods.map(m=>{
+const details={
+'stanislavski':'Focus op: given circumstances, magic if, emotional memory, objectives, super-objective, through-line of action, bits and tasks, communion with partner',
+'method':'Focus op: sense memory, affective memory, substitution, private moment, persoonlijke ervaringen gebruiken, emotionele waarheid vanuit jezelf',
+'meisner':'Focus op: living truthfully, moment-to-moment, impuls, luisteren en reageren op partner, repetition-principes, "wat doet de ander met mij"',
+'practical':'Focus op: wat wil ik, wat doe ik om het te krijgen, what if, essential action, speelbare acties',
+'chekhov':'Focus op: psychological gesture, atmospheres, imagination, qualities of movement, archetypen, radiance, molding',
+'adler':'Focus op: imagination over personal emotion, given circumstances, script analysis, size of action, sociological context',
+'hagen':'Focus op: substitution, transference, specificity, endowment, 6 steps (who/what/where/when/why/how)',
+'viewpoints':'Focus op: spatial relationship, kinesthetic response, shape, gesture, architecture, tempo, duration, repetition, topography',
+'suzuki':'Focus op: energy from the ground, breath, stamping, slow-tempo walks, stillness, vocal power from body',
+'grotowski':'Focus op: via negativa, removing blocks, total act, impulse work, physical actions, performer as holy actor',
+'brecht':'Focus op: verfremdungseffekt, gestus, showing vs being, social commentary, breaking fourth wall, epic theatre',
+'commedia':'Focus op: masks, stock characters, lazzi, physicality, improvisation within structure, archetypes',
+'physical':'Focus op: body as primary instrument, movement quality, spatial awareness, physical metaphor, devised work',
+'biomechanics':'Focus op: precise physical actions, études, rakurs (pose), otkaz-posil-totchka, efficiency, rhythm',
+'alba':'Focus op: breath patterns, effector patterns, step-out procedure, emotional induction via body',
+'laban':'Focus op: effort (weight/time/space/flow), shape, space harmony, movement analysis',
+'alexander':'Focus op: releasing tension, primary control, inhibition, direction, conscious control',
+'feldenkrais':'Focus op: awareness through movement, functional integration, learning patterns, ease',
+'bogart':'Focus op: viewpoints + composition, extreme theater, sources, structure, collage',
+'morris':'Focus op: being over acting, no-acting, personal inventory, dropping defenses',
+'rodenburg':'Focus op: three circles of energy, voice-body connection, presence, breath support',
+'linklater':'Focus op: freeing natural voice, releasing tension, resonance, breath-thought connection',
+'spolin':'Focus op: theatre games, point of concentration, transformation, group agreement, play',
+'johnstone':'Focus op: status transactions, spontaneity, accepting offers, tilt, reincorporation',
+'lecoq':'Focus op: neutral mask, movement analysis, play, bouffons, clown, melodrama, commedia',
+'suzuki2':'Focus op: grammar of the feet, sitting/standing/walking, speaking from below, stillness',
+'grotowski2':'Focus op: total act, song-vibration, performer as shaman, ritual, essence',
+'gesture':'Focus op: full body psychological gesture, archetype expression, qualities, atmosphere',
+'neutral':'Focus op: economy of movement, neutral state, mask work, essential action',
+'rasaboxes':'Focus op: 9 rasas (emotions), physical entry into emotion, spatial emotion work'
+};
+return m.name+': '+(details[m.id]||m.desc);
+}).join('\n');
+
+methodPrompt=`
+BELANGRIJK: Schrijf de HELE analyse volledig vanuit het perspectief van de geselecteerde acteermethode(s).
+
+GESELECTEERDE METHODE(S):
+${methodDetails}
+
+Gebruik de TERMINOLOGIE en DENKWIJZE van deze methode(s) door de hele analyse heen.
+- Elk punt moet geformuleerd worden in termen van de methode
+- Geef concrete oefeningen/technieken uit de methode
+- Verwijs naar de kernprincipes van de methode
+- Als meerdere methodes: combineer ze of behandel ze apart per sectie`;
+}
+
+const basePrompt=selectedMethods.length===0?
+`Geef een praktische acteer-analyse met 12 punten:
+1. Scene breakdown
+2. Emotionele arc
+3. Actiemomenten
+4. Conflict
+5. Subtext
+6. Relatie dynamiek
+7. Gegeven omstandigheden
+8. Obstacles
+9. Keerpunten
+10. Stakes
+11. Tactiek
+12. Geheimen/onderstroom
+
+Wees specifiek en praktisch voor de acteur.`
+:
+`Geef een diepgaande analyse VOLLEDIG VANUIT DE GESELECTEERDE METHODE(S).
+
+Structuur je analyse rond deze kernvragen (beantwoord ze vanuit de methode):
+1. Hoe benader je deze scene met deze methode?
+2. Wat zijn de kernprincipes van de methode toegepast op deze scene?
+3. Welke specifieke oefeningen/technieken gebruik je ter voorbereiding?
+4. Hoe analyseer je je personage vanuit deze methode?
+5. Hoe werk je met je tegenspeler vanuit deze methode?
+6. Wat zijn de emotionele/fysieke keys volgens deze methode?
+7. Waar zitten de belangrijkste momenten en hoe speel je die met deze techniek?
+8. Welke valkuilen moet je vermijden bij deze methode voor deze scene?
+9. Concrete speeltips per beat/moment
+10. Hoe bereid je je voor vlak voor de take/opvoering?
+
+Gebruik ALLEEN de terminologie en principes van de gekozen methode(s).`;
+
+const p=`Expert acteercoach, specialist in alle acteermethodes. Analyseer in ${LANG[S.lang]}.
+
+ACTOR: ${S.actor.name||'Acteur'}, ${S.actor.age||'?'} jaar
 ${S.actor.notes?'Bijzonderheden: '+S.actor.notes:''}
 
 PERSONAGE: ${mainChar.name||'Hoofdpersonage'}
 
-CONTEXT 5 W's:
+CONTEXT:
 - WIE: ${S.ctx.who||'-'}
 - WAT: ${S.ctx.what||'-'}
 - WAAR: ${S.ctx.where||S.ctx.whereC||'-'}
 - WAAROM: ${S.ctx.why||'-'}
 - WAARHEEN: ${S.ctx.waarheen||S.ctx.waarheenC||'-'}
+${methodPrompt}
 
 SCENE(S):
 ${txt}
 
-Geef analyse (12 punten): 1.Scene breakdown 2.Emotionele arc 3.Actiemomenten 4.Conflict 5.Subtext 6.Relaties 7.Omstandigheden 8.Obstacles 9.Keerpunten 10.Stakes 11.Tactiek 12.Geheimen`;
+${basePrompt}`;
+
 const res=await callAI(p);
-if(res){S.analysis=res;save();await extractFrags()}
+if(res){S.analysis=res;save();S.loadMsg='Even wachten...';render();await new Promise(r=>setTimeout(r,2500));await extractFrags()}
 S.loading=false;render();
 }
 
@@ -623,7 +711,7 @@ h+=sec('ctx',"Context (5 W's)",'📍',ctx,'',false);
 let meth='<div class="space-y-2"><div class="max-h-48 overflow-y-auto space-y-1 scrollbar-thin">';
 METHODS.forEach(m=>{
 const sel=S.methods.includes(m.id);
-meth+='<label class="flex items-center gap-2 p-1 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 '+(sel?'bg-purple-50 dark:bg-purple-900/30':'')+'"><input type="checkbox" '+(sel?'checked':'')+' onchange="if(this.checked)S.methods.push(\''+m.id+'\');else S.methods=S.methods.filter(x=>x!==\''+m.id+'\');save();render()"><span class="text-xs dark:text-gray-200">'+m.name+'</span></label>';
+meth+='<label class="flex items-center gap-2 p-1 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 '+(sel?'bg-purple-50 dark:bg-purple-900/30':'')+'"><input type="checkbox" '+(sel?'checked':'')+' onchange="if(this.checked)S.methods.push(\''+m.id+'\');else S.methods=S.methods.filter(x=>x!==\''+m.id+'\');save();renderWithoutScroll()"><span class="text-xs dark:text-gray-200">'+m.name+'</span></label>';
 });
 meth+='</div></div>';
 h+=sec('meth','Methodes (30)','🎬',meth,S.methods.length||'',false);
